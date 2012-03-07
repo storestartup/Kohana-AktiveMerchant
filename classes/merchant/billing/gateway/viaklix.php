@@ -53,7 +53,7 @@ class Merchant_Billing_Gateway_Viaklix extends Merchant_Billing_Gateway {
     
     public function is_test()
     {
-        return isset($this->options['test']) OR parent::is_test();
+        return isset($this->options['test']) AND $this->options['test'];
     }
 
     protected function add_customer_data($options)
@@ -168,16 +168,22 @@ class Merchant_Billing_Gateway_Viaklix extends Merchant_Billing_Gateway {
         
         return new Merchant_Billing_Response(
                 Arr::get($response,'result') == self::APPROVED,
-                Arr::get($response,'result_message'),
+                $this->message_from($response),
                 $response,
                 array(
                     'test'=>$this->is_test(),
                     'authorization'=>Arr::get($response,'approval_code'),
                     'transaction_id'=>Arr::get($response,'txn_id'),
                     'avs_result'=>array('code'=>Arr::get($response,'avs_response')),
-                    'cvv_result'=>Arr::get($response,'cvv2_response')
+                    'cvv_result'=>Arr::get($response,'cvv2_response'),
+                    'processor'=>self::$display_name
                 )
         );
+    }
+    
+    protected function message_from($response)
+    {
+        return Arr::get($response,'result_message');
     }
     
     protected function post_data($params)

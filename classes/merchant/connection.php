@@ -13,7 +13,7 @@ class Merchant_Connection {
 
   public function __construct($endpoint) {
     $this->endpoint = $endpoint;
-    $this->log_level = Arr::get(Kohana::config('aktivemerchant'), 'log_level', Log::DEBUG);
+    $this->log_level = Arr::get(Kohana::$config->load('aktivemerchant'), 'log_level', Log::DEBUG);
   }
 
   public function request ($method, $body, $options = array()){

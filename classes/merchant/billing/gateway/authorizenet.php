@@ -24,6 +24,7 @@ class Merchant_Billing_Gateway_AuthorizeNet extends Merchant_Billing_Gateway {
   const RESPONSE_CODE           = 0;
   const RESPONSE_REASON_CODE    = 2;
   const RESPONSE_REASON_TEXT    = 3;
+  const AUTHORIZATION_CODE = 4;
   const AVS_RESULT_CODE         = 5;
   const TRANSACTION_ID          = 6;
   const CARD_CODE_RESPONSE_CODE = 38;
@@ -215,6 +216,9 @@ XML;
     $data = $this->ssl_post($url, $this->post_data($action, $parameters));
 
     $response = $this->parse($data);
+    
+    $tx_id = Arr::get($response,'transaction_id');
+    $auth_code = Arr::get($response,'authorization_code');
 
     $message = $this->message_from($response);
 
@@ -226,10 +230,12 @@ XML;
             $response,
             array(
               'test' => $test_mode,
-              'authorization' => $response['transaction_id'],
+              'authorization' => $auth_code,
+              'transaction_id'=>$tx_id,
               'fraud_review' => $this->fraud_review_from($response),
               'avs_result' => array( 'code' => $response['avs_result_code'] ),
-              'cvv_result' => $response['card_code']
+              'cvv_result' => $response['card_code'],
+              'processor'=>'AuthorizeNet'
             )
     );
   }
@@ -289,7 +295,8 @@ XML;
       'response_reason_text' => $fields[self::RESPONSE_REASON_TEXT],
       'avs_result_code' => $fields[self::AVS_RESULT_CODE],
       'transaction_id' => $fields[self::TRANSACTION_ID],
-      'card_code' => $fields[self::CARD_CODE_RESPONSE_CODE]
+      'card_code' => $fields[self::CARD_CODE_RESPONSE_CODE],
+        'authorization_code' => $fields[self::AUTHORIZATION_CODE]
     );
 
     return $response;
@@ -304,13 +311,17 @@ XML;
     $this->post['type']           = $action;
     $this->post['delim_data']     = 'TRUE';
     $this->post['delim_char']     = '|';
+    $this->post['duplicate_window'] = 2;
 
     $this->post = array_merge($this->post, $parameters);
     $request = "";
 
     #Add x_ prefix to all keys
     foreach ( $this->post as $k=>$v ) {
-      $request .= 'x_' . $k . '=' . urlencode($v).'&';
+        if(!empty($v))
+        {
+          $request .= 'x_' . $k . '=' . urlencode($v).'&';
+        }
     }
     return rtrim($request,'& ');
   }
@@ -338,7 +349,7 @@ XML;
 
   private function add_address($options) {
     $address = isset($options['billing_address']) ? $options['billing_address'] : $options['address'];
-    $this->post['address'] = isset($address['address1'])? $address['address1'] : null;
+    $this->post['address'] = isset($address['address'])? $address['address'] : null;
     $this->post['company'] = isset($address['company']) ? $address['company'] : null;
     $this->post['phone']   = isset($address['phone'])   ? $address['phone']   : null;
     $this->post['zip']     = isset($address['zip'])     ? $address['zip']     : null;

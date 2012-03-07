@@ -58,6 +58,12 @@ class Merchant_Billing_Response {
    * @var mixed 
    */
   public   $fraud_review;
+  
+  /**
+   *
+   * @var mixed the processing gateway
+   */
+  public $processor;
 
   /**
    *
@@ -77,18 +83,11 @@ class Merchant_Billing_Response {
     $this->fraud_review  = Arr::get($options,'fraud_review');
     $this->avs_result    = isset($options['avs_result']) ? new Merchant_Billing_AvsResult($options['avs_result']) : null;
     $this->cvv_result    = isset($options['cvv_result']) ? new Merchant_Billing_CvvResult($options['cvv_result']) : null;
+    $this->processor=Arr::get($options,'processor');
   }
 
   public function  __get($name) {
-    return Arr::get($this->params,$name);
-  }
-
-  /**
-   *
-   * @return boolean
-   */
-  public function success(){
-    return $this->success;
+    return isset($this->$name) ? $this->$name : Arr::get($this->params,$name);
   }
 
 }

@@ -267,7 +267,8 @@ class Merchant_Billing_Gateway_Beanstream_Core extends Merchant_Billing_Gateway 
             'authorization' => $this->authorization_from($response),
             'transaction_id'=>Arr::get($response,'trnId'),
             'cvv_result' => Arr::get($this->CVD_CODES, Arr::get($response, 'cvdId')),
-            'avs_result' => array('code' => (in_array(Arr::get($response, 'avsId'), $this->AVS_CODES) ? $this->AVS_CODES[$response['avsId']] : Arr::get($response, 'avsId'))
+            'avs_result' => array('code' => (in_array(Arr::get($response, 'avsId'), $this->AVS_CODES) ? $this->AVS_CODES[$response['avsId']] : Arr::get($response, 'avsId')),
+                'processor'=>self::$display_name
             )
                 )
         );

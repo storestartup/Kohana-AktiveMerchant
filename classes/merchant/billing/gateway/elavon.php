@@ -73,9 +73,14 @@ class Merchant_Billing_Gateway_Elavon extends Merchant_Billing_Gateway_Viaklix
         if (isset($options['shipping_address']))
         {
             $shipping_address = $options['shipping_address'];
-            list($first_name, $last_name) = $this->parse_first_and_last_name($shipping_address['name']);
-            $this->form['ship_to_first_name'] = strlen($first_name) > 20 ? substr($first_name, 0, 20) : $first_name;
-            $this->form['ship_to_last_name'] = strlen($last_name) > 30 ? substr($last_name, 0, 30) : $last_name;
+            
+            if (isset($shipping_address['name']))
+            {
+                list($first_name, $last_name) = $this->parse_first_and_last_name($shipping_address['name']);
+                $this->form['ship_to_first_name'] = strlen($first_name) > 20 ? substr($first_name, 0, 20) : $first_name;
+                $this->form['ship_to_last_name'] = strlen($last_name) > 30 ? substr($last_name, 0, 30) : $last_name;
+            }
+            
             $this->form['ship_to_address1'] = $this->get_value($shipping_address, 'address1', 30);
             $this->form['ship_to_address2'] = $this->get_value($shipping_address, 'address2', 30);
             $this->form['ship_to_city'] = $this->get_value($shipping_address, 'city', 30);
@@ -88,14 +93,12 @@ class Merchant_Billing_Gateway_Elavon extends Merchant_Billing_Gateway_Viaklix
     
     protected function message_from($response)
     {
-        return $this->success($response) ? $response['result_message'] : $response['errorMessage'];
-        //success?(response) ? response['result_message'] : response['errorMessage']
+        return $this->success($response) ? Arr::get($response,'result_message') : Arr::get($response,'errorMessage');
     }
     
     protected function success($response)
     {
         return ! isset($response['errorMessage']);
-        //!response.has_key?('errorMessage')
     }
     
 }

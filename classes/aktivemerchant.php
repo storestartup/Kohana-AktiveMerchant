@@ -18,10 +18,12 @@ class AktiveMerchant {
     {
         if ($driver == NULL)
         {
-            $driver = Arr::get(Kohana::config('aktivemerchant'),'default_gateway','AuthorizeNet');
+            $driver = Arr::get(Kohana::$config->load('aktivemerchant'),'default_gateway','AuthorizeNet');
         }
+        
         // get the default payment driver from config
-        $config = Arr::get(Kohana::config('aktivemerchant'), $driver, array());
+        $config = Arr::get(Kohana::$config->load('aktivemerchant'), $driver, array());
+        
         // try to determine driver class name
         $class = 'Merchant_Billing_Gateway_' . $driver;
 
