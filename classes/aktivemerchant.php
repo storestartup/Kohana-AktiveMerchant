@@ -13,16 +13,22 @@ class AktiveMerchant {
      * specified in the config file. Optionally specify a different driver
      * 
      * @param mixed $driver optionally specify the driver, ex AuthorizeNet or Beanstream
+     * @param string $config_group optionally specify a config group to be able to have multiple per driver
      */
-    public function __construct($driver=NULL)
+    public function __construct($driver=NULL, $config_group=NULL)
     {
         if ($driver == NULL)
         {
             $driver = Arr::get(Kohana::$config->load('aktivemerchant'),'default_gateway','AuthorizeNet');
         }
         
+        if($config_group === NULL)
+        {
+            $config_group = $driver;
+        }
+        
         // get the default payment driver from config
-        $config = Arr::get(Kohana::$config->load('aktivemerchant'), $driver, array());
+        $config = Arr::get(Kohana::$config->load('aktivemerchant'), $config_group, array());
         
         // try to determine driver class name
         $class = 'Merchant_Billing_Gateway_' . $driver;
