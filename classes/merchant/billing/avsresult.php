@@ -33,7 +33,7 @@ class Merchant_Billing_AvsResult {
   'O' => 'Card member\'s name and billing address match, but billing postal code does not match.',
   'P' => 'Postal code matches, but street address not verified.',
   'Q' => 'Card member\'s name, billing address, and postal code match. Shipping information verified but chargeback protection not guaranteed.',
-  'R' => 'System unavailable.',
+  'R' => 'AVS system unavailable.',
   'S' => 'U.S.-issuing bank does not support AVS.',
   'T' => 'Card member\'s name does not match, but street address matches.',
   'U' => 'Address information unavailable.',
