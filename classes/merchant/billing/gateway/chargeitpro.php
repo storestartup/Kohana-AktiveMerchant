@@ -3,25 +3,30 @@
 class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
 {
 
-    //private static $wsdl = 'https://secure.chargeitpro.com/soap/gate/0AE595C1/chargeitpro.wsdl';
-    
-    private static $wsdl = 'https://sandbox.chargeitpro.com/soap/gate/0AE595C1/chargeitpro.wsdl';
-    
+    const LIVE_WSDL = 'https://secure.chargeitpro.com/soap/gate/0AE595C1/chargeitpro.wsdl';
+    const TEST_WSDL = 'https://sandbox.chargeitpro.com/soap/gate/0AE595C1/chargeitpro.wsdl';
+
     private $client;
     private $token;
 
     public function __construct($options)
     {
+        // check for required options (api credentials)
         $this->required_options('sourcekey,pin', $options);
 
-        $this->client = new SoapClient(self::$wsdl);
-        // build security token
+        // determine url to connect to
+        $wsdl_url = Arr::get($options, 'test_mode', true) ? self::TEST_WSDL : self::LIVE_WSDL;
+        
+        Kohana::$log->add(Log::DEBUG,"Chargeitpro gateway initialized with wsdl_url=$wsdl_url");
+
+        // create soap client
+        $this->client = new SoapClient($wsdl_url);
+
+        // build security token for the api (based on CIP soap api documentation)
         // generate random seed value
         $seed = time() . rand();
-
         // make hash value using sha1 function
         $hash = sha1($options['sourcekey'] . $seed . $options['pin']);
-
         // assembly ueSecurityToken as an array
         $this->token = array(
             'SourceKey' => $options['sourcekey'],
@@ -44,59 +49,93 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
      */
     public function purchase($money, Merchant_Billing_CreditCard $creditcard, $options = array())
     {
+        $billing_address=Arr::get($options,'billing_address',array());
+        
         $request = array(
             'command' => 'sale',
+            'CustomerID'=>Arr::get($options,'customer_id'),
+            'ClientIP' => $_SERVER['REMOTE_ADDR'],
             'AccountHolder' => trim($creditcard->first_name . ' ' . $creditcard->last_name),
             'Details' => array(
-                'Description' => 'Example Transaction',
+                'OrderID' => Arr::get($options, 'id'),
                 'Amount' => $money,
-                'Invoice' => '44539'
+                'Subtotal' => Arr::get($options, 'subtotal'),
+                'Tax' => Arr::get($options, 'tax', 0),
+                'Shipping' => Arr::get($options, 'shipping', 0),
+                'Discount' => Arr::get($options, 'discount', 0)
             ),
             'CreditCardData' => array(
                 'CardNumber' => $creditcard->number,
                 'CardExpiration' => $creditcard->month . $creditcard->year,
-                'AvsStreet' => '1234 Main Street',
-                'AvsZip' => '99281',
-                'CardCode' => $creditcard->verification_value
+                'CardCode' => $creditcard->verification_value,
+                'AvsStreet' => Arr::get($billing_address,'address1'),
+                'AvsZip' => Arr::get($billing_address,'zip')
             )
         );
+        
+        // billing address
+        $request['BillingAddress']=array(
+            'Street'=>Arr::get($billing_address,'address1'),
+            'City'=>Arr::get($billing_address,'city'),
+            'State'=>Arr::get($billing_address,'state'),
+            'Zip'=>Arr::get($billing_address,'zip'),
+            'Country'=>Arr::get($billing_address,'country')
+        );
+        // shipping address
+        $shipping_address=Arr::get($options,'shipping_address',array());
+        $request['ShippingAddress']=array(
+            'Street'=>Arr::get($shipping_address,'address1'),
+            'City'=>Arr::get($shipping_address,'city'),
+            'State'=>Arr::get($shipping_address,'state'),
+            'Zip'=>Arr::get($shipping_address,'zip'),
+            'Country'=>Arr::get($shipping_address,'country')
+        );
+        
+        // line items
+        $request['LineItems']=array();
+        foreach (Arr::get($options,'items',array()) as $item)
+        {
+            $request['LineItems'] []= array(
+               'ProductRefNum'=>Arr::get($item,'id'),
+                'SKU'=>Arr::get($item,'sku'),
+                'ProductName'=>Arr::get($item,'name'),
+                'UnitPrice'=>Arr::get($item,'price'),
+                'Qty'=>Arr::get($item,'qty'),
+                'Taxable'=>Arr::get($item,'taxable',false)
+            );
+        }
 
         try
         {
-            Kohana::$log->add(Log::DEBUG, 'Posting to CIP: '.Debug::dump($request));
+            Kohana::$log->add(Log::DEBUG, 'Posting to CIP: ' . Debug::dump($request));
             $response = $this->client->runTransaction($this->token, $request);
-            Kohana::$log->add(Log::DEBUG, 'Response from CIP: '.Debug::dump($response));
+            Kohana::$log->add(Log::DEBUG, 'Response from CIP: ' . Debug::dump($response));
             if ($response->ResultCode == 'A')
             {
                 return new Merchant_Billing_Response(
-                                TRUE,
-                                'Card successfully charged',
-                                $response,
-                                array(
-                                    'test' => FALSE,
-                                    'authorization' => $response->AuthCode,
-                                    'transaction_id' => $response->RefNum,
-                                    'fraud_review' => FALSE,
-                                    'avs_result' => $response->AvsResultCode,
-                                    'cvv_result' => $response->CardCodeResultCode,
-                                    'processor' => 'Chargeitpro'
-                                )
+                        TRUE, 'Card successfully charged', $response, array(
+                    'test' => FALSE,
+                    'authorization' => $response->AuthCode,
+                    'transaction_id' => $response->RefNum,
+                    'fraud_review' => FALSE,
+                    'avs_result' => $response->AvsResultCode,
+                    'cvv_result' => $response->CardCodeResultCode,
+                    'processor' => 'Chargeitpro'
+                        )
                 );
             }
             else
             {
                 return new Merchant_Billing_Response(
-                                FALSE,
-                                $response->Result,
-                                $response
+                        FALSE, $response->Error, $response
                 );
             }
         }
         catch (SoapFault $ex)
         {
-            Kohana::$log->add(Log::ERROR,$ex);
-            Kohana::$log->add(Log::ERROR,  $this->client->__getLastRequest());
-            Kohana::$log->add(Log::ERROR,$this->client->__getLastResponse());
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
             // soap error
             return new Merchant_Billing_Response(FALSE, $ex->getMessage());
         }
@@ -104,15 +143,26 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
 
     /**
      *
-     * @param string $authorization
+     * @param string $transaction_id (RefNum)
      * @param array  $options
      *
      * @return Merchant_Billing_Response
      */
-    public function void($authorization, $options = array())
+    public function void($transaction_id, $options = array())
     {
-        $this->post = array('trans_id' => $authorization);
-        return $this->commit('VOID', null);
+        try
+        {
+            $this->client->voidTransaction($this->token, $transaction_id);
+            return new Merchant_Billing_Response(true, 'Transaction successfully voided');
+        }
+        catch (SoapFault $ex)
+        {
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
+            // soap error
+            return new Merchant_Billing_Response(false, $ex->getMessage());
+        }
     }
 
     /**
@@ -125,71 +175,81 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
      */
     public function credit($money, $identification, $options = array())
     {
-        $this->required_options('card_number', $options);
-        $this->post = array(
-            'trans_id' => $identification,
-            'card_num' => $options['card_number']
+        $default_request = array(
+            'RefNum' => $identification,
+            'Details' => array(
+                'Amount' => $money
+            )
         );
-
-
-        $this->add_invoice($options);
-        return $this->commit('CREDIT', $money);
-    }
-
-    private function add_invoice($options)
-    {
-        $this->post['invoice_num'] = isset($options['order_id']) ? $options['order_id'] : null;
-        $this->post['description'] = isset($options['description']) ? $options['description'] : null;
-    }
-
-    private function add_creditcard(Merchant_Billing_CreditCard $creditcard)
-    {
-        $this->data['card'] = array(
-            'number' => $creditcard->number,
-            'exp_month' => $creditcard->month,
-            'exp_year' => $creditcard->year,
-            'cvc' => $creditcard->verification_value,
-            'name' => trim($creditcard->first_name . ' ' . $creditcard->last_name)
-        );
-    }
-
-    private function add_address($options)
-    {
-        $address = isset($options['billing_address']) ? $options['billing_address'] : $options['address'];
-        $this->post['address'] = isset($address['address']) ? $address['address'] : null;
-        $this->post['company'] = isset($address['company']) ? $address['company'] : null;
-        $this->post['phone'] = isset($address['phone']) ? $address['phone'] : null;
-        $this->post['zip'] = isset($address['zip']) ? $address['zip'] : null;
-        $this->post['city'] = isset($address['city']) ? $address['city'] : null;
-        $this->post['country'] = isset($address['country']) ? $address['country'] : null;
-        $this->post['state'] = isset($address['state']) ? $address['state'] : 'n/a';
-    }
-
-    private function add_customer_data($options)
-    {
-        if (isset($options['email']))
+        $request = array_merge($default_request, $options);
+        try
         {
-            $this->post['email'] = isset($options['email']) ? $options['email'] : null;
-            $this->post['email_customer'] = false;
+            Kohana::$log->add(Log::DEBUG, 'Posting to CIP: ' . Debug::dump($request));
+            $response = $this->client->runTransaction($this->token, $request);
+            Kohana::$log->add(Log::DEBUG, 'Response from CIP: ' . Debug::dump($response));
+            if ($response->ResultCode == 'A')
+            {
+                return new Merchant_Billing_Response(
+                        TRUE, 'Card successfully credited', $response, array(
+                    'test' => FALSE,
+                    'authorization' => $response->AuthCode,
+                    'transaction_id' => $response->RefNum,
+                    'fraud_review' => FALSE,
+                    'avs_result' => $response->AvsResultCode,
+                    'cvv_result' => $response->CardCodeResultCode,
+                    'processor' => 'Chargeitpro'
+                        )
+                );
+            }
+            else
+            {
+                return new Merchant_Billing_Response(
+                        FALSE, $response->Error, $response
+                );
+            }
         }
-
-        if (isset($options['customer']))
+        catch (SoapFault $ex)
         {
-            $this->post['cust_id'] = $options['customer'];
-        }
-
-        if (isset($options['ip']))
-        {
-            $this->post['customer_ip'] = $options['ip'];
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
+            // soap error
+            return new Merchant_Billing_Response(FALSE, $ex->getMessage());
         }
     }
 
-    private function add_duplicate_window()
+    /**
+     *
+     * @param number                      $money
+     * @param Merchant_Billing_CreditCard $creditcard
+     * @param array                       $options
+     */
+    public function recurring($money, Merchant_Billing_CreditCard $card, $options = array())
     {
-        if ($this->duplicate_window != null)
-        {
-            $this->post['duplicate_window'] = $this->duplicate_window;
-        }
+        
+    }
+
+    /**
+     *
+     * @param string                      $subscription_id subscription id returned from recurring method
+     * @param Merchant_Billing_CreditCard $creditcard
+     *
+     * @return Merchant_Billing_Response
+     */
+    public function update_recurring($subscription_id, Merchant_Billing_CreditCard $creditcard)
+    {
+
+    }
+
+    /**
+     *
+     * @param string $subscription_id subscription id return from recurring method
+     *
+     * @return Merchant_Billing_Response
+     */
+    public function cancel_recurring($subscription_id)
+    {
+
     }
 
 }
