@@ -102,6 +102,18 @@ class AktiveMerchant {
     {
         return $this->gateway->void($transaction_id, $options);
     }
+    
+    /**
+     * 
+     * @param type $money
+     * @param Merchant_Billing_CreditCard $card
+     * @param type $options
+     * @return Merchant_Billing_Response
+     */
+    public function recurring($money, Merchant_Billing_CreditCard $card, $options = array())
+    {
+        return $this->gateway->recurring($money,$card,$options);
+    }
 
 }
 
