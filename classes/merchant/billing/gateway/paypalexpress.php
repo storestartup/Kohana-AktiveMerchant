@@ -19,7 +19,7 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
   private $token;
   private $payer_id;
 
-  public static $default_currency = 'EUR';
+  public static $default_currency = 'USD';
   public static $supported_countries = array('US');
   public static $homepage_url = 'https://www.paypal.com/cgi-bin/webscr?cmd=xpt/merchant/ExpressCheckoutIntro-outside';
   public static $display_name = 'PayPal Express Checkout';
@@ -33,6 +33,11 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
 
     if( isset($options['version'])) $this->version = $options['version'];
     if( isset($options['currency'])) self::$default_currency = $options['currency'];
+  }
+  
+  public function is_test()
+  {
+      return Arr::get($this->options,'test',false);
   }
 
   /**
@@ -93,7 +98,6 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
     $params = array(
         'METHOD' => 'SetExpressCheckout',
         'PAYMENTREQUEST_0_AMT'     => $this->amount($money),
-        'EMAIL'                    => $options['email'],
         'RETURNURL'                => $options['return_url'],
         'CANCELURL'                => $options['cancel_return_url']);
 
@@ -124,13 +128,9 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
   {
     $params = array();  
       
-    if(isset ($options['payment_breakdown']))
-    {
-        $breakdown = $options['payment_breakdown'];
-        $params['PAYMENTREQUEST_0_ITEMAMT'] = $this->amount($breakdown['item_total']);
-        $params['PAYMENTREQUEST_0_SHIPPINGAMT'] = $this->amount($breakdown['shipping']);
-        $params['PAYMENTREQUEST_0_HANDLINGAMT'] = $this->amount($breakdown['handling']);
-    }
+        $params['PAYMENTREQUEST_0_ITEMAMT'] = Arr::get($options,'subtotal',0);
+        $params['PAYMENTREQUEST_0_SHIPPINGAMT'] = Arr::get($options,'shipping',0);
+        $params['PAYMENTREQUEST_0_TAXAMT'] =Arr::get($options,'tax',0);
     
     if(isset ($options['items']))
     {
@@ -194,7 +194,7 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
         'PWD'           => $this->options['password'],
         'VERSION'       => $this->version,
         'SIGNATURE'     => $this->options['signature'],
-        'PAYMENTREQUEST_0_CURRENCYCODE'  => $this->default_currency,
+        'PAYMENTREQUEST_0_CURRENCYCODE'  => self::$default_currency,
         'CURRENCYCODE'  => self::$default_currency);
     
     $this->post = array_merge($this->post, $params);
@@ -212,7 +212,10 @@ class Merchant_Billing_Gateway_PaypalExpress extends Merchant_Billing_Gateway_Pa
    * @return Merchant_Billing_Gateway_Paypal_ExpressResponse 
    */
   protected function build_response($success, $message, $response, $options=array()){
-    return new Merchant_Billing_Gateway_Paypal_ExpressResponse($success, $message, $response,$options);
+    $resp = new Merchant_Billing_Gateway_Paypal_ExpressResponse($success, $message, $response,$options);
+    $resp->processor='Paypalexpress';
+    $resp->transaction_id=Arr::get($response,'PAYMENTINFO_0_TRANSACTIONID');
+    return $resp;
   }
   
 }

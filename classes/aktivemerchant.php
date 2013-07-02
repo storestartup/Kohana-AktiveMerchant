@@ -43,6 +43,11 @@ class AktiveMerchant {
             );
         }
     }
+    
+    public function __call($name, $arguments)
+    {
+        return call_user_func_array(array($this->gateway,$name),$arguments);
+    }
 
     /**
      *
@@ -51,10 +56,13 @@ class AktiveMerchant {
      * @param array $options
      * @return Merchant_Billing_Response 
      */
+    /*
     public function purchase($amount, Merchant_Billing_CreditCard $card, $options = array())
     {
         return $this->gateway->purchase($amount, $card, $options);
     }
+     * 
+     */
 
     /**
      *
@@ -113,6 +121,11 @@ class AktiveMerchant {
     public function recurring($money, Merchant_Billing_CreditCard $card, $options = array())
     {
         return $this->gateway->recurring($money,$card,$options);
+    }
+    
+    public function create_customer_from_transaction($transaction_id)
+    {
+        return $this->gateway->create_customer_from_transaction($transaction_id);
     }
 
 }

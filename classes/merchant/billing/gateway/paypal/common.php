@@ -7,7 +7,7 @@
  * @author  Andreas Kollaros
  * @license http://www.opensource.org/licenses/mit-license.php
  */
-class Merchant_Billing__Gateway_Paypal_Common extends Merchant_Billing_Gateway{
+class Merchant_Billing_Gateway_Paypal_Common extends Merchant_Billing_Gateway{
   const TEST_URL = 'https://api-3t.sandbox.paypal.com/nvp';
   const LIVE_URL = 'https://api-3t.paypal.com/nvp';
 
@@ -26,7 +26,7 @@ class Merchant_Billing__Gateway_Paypal_Common extends Merchant_Billing_Gateway{
     parse_str( $body, $response_array );
     if ( $response_array['ACK'] == self::FAILURE ) {
       $error_message = "Error code (". $response_array['L_ERRORCODE0'] . ")\n ".$response_array['L_SHORTMESSAGE0']. ".\n Reason: ".$response_array['L_LONGMESSAGE0'];
-      Merchant_Logger::error_log($error_message);
+      //Merchant_Logger::error_log($error_message);
     }
     return $response_array;
   }
