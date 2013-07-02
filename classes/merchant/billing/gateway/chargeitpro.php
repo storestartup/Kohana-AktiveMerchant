@@ -140,6 +140,66 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
             return new Merchant_Billing_Response(FALSE, $ex->getMessage());
         }
     }
+    
+    /**
+     *
+     * @param number                      $money
+     * @param Merchant_Billing_CreditCard $creditcard
+     * @param array                       $options
+     *
+     * @return Merchant_Billing_Response
+     */
+    public function authorize($money, Merchant_Billing_CreditCard $creditcard, $options = array())
+    {
+        $request = array(
+            'command' => 'authonly',
+            'ClientIP' => $_SERVER['REMOTE_ADDR'],
+            'AccountHolder' => trim($creditcard->first_name . ' ' . $creditcard->last_name),
+            'Details' => array(
+                'Amount' => $money
+            ),
+            'CreditCardData' => array(
+                'CardNumber' => $creditcard->number,
+                'CardExpiration' => $creditcard->month . $creditcard->year,
+                'CardCode' => $creditcard->verification_value
+            )
+        );
+
+        try
+        {
+            Kohana::$log->add(Log::DEBUG, 'Posting to CIP: ' . Debug::dump($request));
+            $response = $this->client->runTransaction($this->token, $request);
+            Kohana::$log->add(Log::DEBUG, 'Response from CIP: ' . Debug::dump($response));
+            if ($response->ResultCode == 'A')
+            {
+                return new Merchant_Billing_Response(
+                        TRUE, 'Card successfully charged', $response, array(
+                        'test' => FALSE,
+                        'authorization' => $response->AuthCode,
+                        'transaction_id' => $response->RefNum,
+                        'fraud_review' => FALSE,
+                        'avs_result' => $response->AvsResultCode,
+                        'cvv_result' => $response->CardCodeResultCode,
+                        'processor' => 'Chargeitpro'
+                        )
+                );
+            }
+            else
+            {
+                return new Merchant_Billing_Response(
+                        FALSE, $response->Error, $response
+                );
+            }
+        }
+        catch (SoapFault $ex)
+        {
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
+            // soap error
+            return new Merchant_Billing_Response(FALSE, $ex->getMessage());
+        }
+    }
 
     /**
      *
@@ -218,6 +278,30 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
         }
     }
 
+    /**
+     * 
+     * @param string $transaction_id
+     * @return string $customer_id
+     */
+    public function create_customer_from_transaction($transaction_id)
+    {
+        try
+        {
+            Kohana::$log->add(Log::DEBUG, 'creating customer from transaction_id: '.$transaction_id);
+            $response = $this->client->convertTranToCust($this->token, $transaction_id);
+            Kohana::$log->add(Log::DEBUG, 'Response from CIP: ' . Debug::dump($response));
+            return $response;
+        }
+        catch (SoapFault $ex)
+        {
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
+            // soap error
+            return false;
+        }
+    }
+    
     /**
      *
      * @param number                      $money
