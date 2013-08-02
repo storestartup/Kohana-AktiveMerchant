@@ -92,16 +92,16 @@ class Merchant_Billing_AvsResult {
 
     if ( isset( $attr['code'] ) && !empty($attr['code']) && $attr['code']!='null' )
       $this->code = strtoupper($attr['code']);
-    $this->message = self::$MESSAGES[$this->code];
+    $this->message = Arr::get(self::$MESSAGES,$this->code,'Unknown');
 
     if ( !isset($attr['street_match']) ) {
-      $this->street_match = $this->STREET_MATCH_CODE[$this->code];
+      $this->street_match = Arr::get($this->STREET_MATCH_CODE,$this->code,'Unknown');
     } else {
       $this->street_match = strtoupper($attr['street_match']);
     }
 
     if ( !isset($attr['postal_match']) ) {
-      $this->postal_match = $this->POSTAL_MATCH_CODE[$this->code];
+      $this->postal_match = Arr::get($this->POSTAL_MATCH_CODE,$this->code,'Unknown');
     } else {
       $this->postal_match = strtoupper($attr['postal_match']);
     }
