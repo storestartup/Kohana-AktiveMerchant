@@ -20,7 +20,9 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
         Kohana::$log->add(Log::DEBUG,"Chargeitpro gateway initialized with wsdl_url=$wsdl_url");
 
         // create soap client
-        $this->client = new SoapClient($wsdl_url);
+        $this->client = new SoapClient($wsdl_url,array(
+            'trace'=>Kohana::$environment == Kohana::PRODUCTION
+        ));
 
         // build security token for the api (based on CIP soap api documentation)
         // generate random seed value
@@ -118,7 +120,7 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
                     'authorization' => $response->AuthCode,
                     'transaction_id' => $response->RefNum,
                     'fraud_review' => FALSE,
-                    'avs_result' => $response->AvsResultCode,
+                    'avs_result' => array('code'=>$response->AvsResultCode),
                     'cvv_result' => $response->CardCodeResultCode,
                     'processor' => 'Chargeitpro'
                         )
@@ -293,6 +295,27 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
             return $response;
         }
         catch (SoapFault $ex)
+        {
+            Kohana::$log->add(Log::ERROR, $ex);
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
+            Kohana::$log->add(Log::ERROR, $this->client->__getLastResponse());
+            // soap error
+            return false;
+        }
+    }
+    
+    public function call_method($method,$args)
+    {
+        $arguments=array($this->token);
+        foreach($args as $arg) $arguments[]=$arg;
+        try
+        {
+            Kohana::$log->add(Log::DEBUG,"Calling soap method [$method] with args: ".Debug::dump($arguments));
+            $response = $this->client->__soapCall($method, $arguments);
+            Kohana::$log->add(Log::DEBUG,"response: ".Debug::dump($response));
+            return $response;
+        }
+        catch(SoapFault $ex)
         {
             Kohana::$log->add(Log::ERROR, $ex);
             Kohana::$log->add(Log::ERROR, $this->client->__getLastRequest());
