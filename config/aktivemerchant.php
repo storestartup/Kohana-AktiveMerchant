@@ -13,5 +13,10 @@ return array(
         'login' => '224100000', // merchant id
         'hash_key' => '3mpaw!um', // for md5 hashing
         'secure_profile_api_key' => '07AF75707D9147E2B334E47ABC470AAB' // payment profiles api passcode
+    ),
+    'Bluepay'=>array(
+        'account_id'=>'',
+        'test_mode'=>true,
+        'secret_key'=>''
     )
 );
