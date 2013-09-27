@@ -29,6 +29,12 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
         $seed = time() . rand();
         // make hash value using sha1 function
         $hash = sha1($options['sourcekey'] . $seed . $options['pin']);
+
+        // get server IP
+        //$server_ip=getHostByName(getHostName());
+        // hardcode web2 ip for now
+        $server_ip='166.78.165.253';
+        
         // assembly ueSecurityToken as an array
         $this->token = array(
             'SourceKey' => $options['sourcekey'],
@@ -37,7 +43,7 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
                 'Seed' => $seed,
                 'HashValue' => $hash
             ),
-            'ClientIP' => $_SERVER['REMOTE_ADDR'],
+            'ClientIP' => Arr::get($_SERVER,'REMOTE_ADDR',$server_ip),
         );
     }
 
