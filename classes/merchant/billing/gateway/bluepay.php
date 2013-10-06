@@ -30,7 +30,6 @@ class Merchant_Billing_Gateway_Bluepay extends Merchant_Billing_Gateway
         $data=array(
             'TRANS_TYPE'=>'SALE',
             'AMOUNT'=>$money,
-            'MODE'=>'TEST',
             'PAYMENT_ACCOUNT'=>$creditcard->number,
             'CARD_EXPIRE'=>$this->card_exp($creditcard),
             'CARD_CVV2'=>$creditcard->verification_value,
@@ -44,6 +43,50 @@ class Merchant_Billing_Gateway_Bluepay extends Merchant_Billing_Gateway
             'ZIP'=>Arr::get($billing_address,'zip'),
             'COUNTRY'=>Arr::get($billing_address,'country')
         );
+
+        // check for optional fields
+        if (isset($options['description']) && ! empty($options['description']))
+            $data['MEMO']=$options['description'];
+        if (isset($options['email']) && ! empty($options['email']))
+            $data['EMAIL']=$options['email'];
+        if (isset($options['phone']) && ! empty($options['phone']))
+            $data['PHONE']=$options['phone'];
+
+        $result=$this->post($data);
+        
+        if (Arr::get($result,'STATUS') == '1')
+        {
+            return new Merchant_Billing_Response(
+                        TRUE, 'Card successfully charged', $result, array(
+                    'test' => $this->test_mode,
+                    'authorization' => Arr::get($result,'AUTH_CODE'),
+                    'transaction_id' => Arr::get($result,'TRANS_ID'),
+                    'fraud_review' => FALSE,
+                    'avs_result' => array('code'=>Arr::get($result,'AVS')),
+                    'cvv_result' => Arr::get($result,'CVV2'),
+                    'processor' => 'Bluepay'
+                        )
+                );
+        }
+        else
+        {
+            return new Merchant_Billing_Response(false, Arr::get($result,'MESSAGE','Unknown error'), $result);
+        }
+    }
+
+    public function purchase_transaction($money,$transaction_id,$rebilling=true,$options=array())
+    {
+        $data = array(
+            'TRANS_TYPE'=>'SALE',
+            'AMOUNT'=>$money,
+            'MASTER_ID'=>$transaction_id,
+            'CUSTOMER_IP'=>Arr::get($_SERVER,'REMOTE_ADDR','127.0.0.1')
+        );
+        if ($rebilling) $data['F_REBILLING']='1';
+
+        // see if there's a description
+        if (isset($options['description']) && ! empty($options['description']))
+            $data['MEMO']=$options['description'];
 
         $result=$this->post($data);
         
@@ -81,7 +124,6 @@ class Merchant_Billing_Gateway_Bluepay extends Merchant_Billing_Gateway
         $data=array(
             'TRANS_TYPE'=>'AUTH',
             'AMOUNT'=>$money,
-            'MODE'=>'TEST',
             'PAYMENT_ACCOUNT'=>$creditcard->number,
             'CARD_EXPIRE'=>$this->card_exp($creditcard),
             'CARD_CVV2'=>$creditcard->verification_value,
@@ -156,12 +198,12 @@ class Merchant_Billing_Gateway_Bluepay extends Merchant_Billing_Gateway
     /**
      *
      * @param number $money
-     * @param string $identification
+     * @param string $transaction_id
      * @param array  $options
      *
      * @return Merchant_Billing_Response
      */
-    public function credit($money, $identification, $options = array())
+    public function credit($money, $transaction_id, $options = array())
     {
         $data=array(
             'AMOUNT'=>$money,
