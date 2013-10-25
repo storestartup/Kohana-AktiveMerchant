@@ -60,7 +60,7 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
         $billing_address=Arr::get($options,'billing_address',array());
         
         $request = array(
-            'command' => 'sale',
+            'Command' => 'sale',
             'CustomerID'=>Arr::get($options,'customer_id'),
             'ClientIP' => $_SERVER['REMOTE_ADDR'],
             'AccountHolder' => trim($creditcard->first_name . ' ' . $creditcard->last_name),
@@ -160,7 +160,7 @@ class Merchant_Billing_Gateway_Chargeitpro extends Merchant_Billing_Gateway
     public function authorize($money, Merchant_Billing_CreditCard $creditcard, $options = array())
     {
         $request = array(
-            'command' => 'authonly',
+            'Command' => 'authonly',
             'ClientIP' => $_SERVER['REMOTE_ADDR'],
             'AccountHolder' => trim($creditcard->first_name . ' ' . $creditcard->last_name),
             'Details' => array(
