@@ -15,8 +15,8 @@ return array(
         'secure_profile_api_key' => '07AF75707D9147E2B334E47ABC470AAB' // payment profiles api passcode
     ),
     'Bluepay'=>array(
-        'account_id'=>'',
+        'account_id'=>'100142860623',
         'test_mode'=>true,
-        'secret_key'=>''
+        'secret_key'=>'UVS2YVNIH0TD4R5HVLRX/YLJLUQUFQY1'
     )
 );
