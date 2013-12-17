@@ -320,7 +320,14 @@ XML;
     foreach ( $this->post as $k=>$v ) {
         if(!empty($v))
         {
-          $request .= 'x_' . $k . '=' . urlencode($v).'&';
+          try
+          {
+            $request .= 'x_' . $k . '=' . urlencode($v).'&';
+          }
+          catch(Exception $ex)
+          {
+            Kohana::$log->add(Log::ERROR,"error adding post data for auth.net. k=$k v=".Debug::dump($v));
+          }
         }
     }
     return rtrim($request,'& ');
@@ -365,7 +372,8 @@ XML;
     }
 
     if ( isset($options['customer']) ) {
-      $this->post['cust_id'] = $options['customer'];
+      $cust=$options['customer'];
+      $this->post['cust_id'] = Arr::get($cust,'id');
     }
 
     if ( isset($options['ip']) ) {
