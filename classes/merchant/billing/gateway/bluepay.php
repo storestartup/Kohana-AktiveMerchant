@@ -253,8 +253,20 @@ class Merchant_Billing_Gateway_Bluepay extends Merchant_Billing_Gateway
             CURLOPT_POST=>true,
             CURLOPT_POSTFIELDS=>  http_build_query($data)
         ));
+
+        // sanitaze data for logging
+        $data_safe=$data;
+        if (isset($data_safe['PAYMENT_ACCOUNT']))
+        {
+            $data_safe['PAYMENT_ACCOUNT']='XXXX'.substr($data['PAYMENT_ACCOUNT'],-4);
+        }
+        if (isset($data_safe['CARD_CVV2']))
+        {
+            $data_safe['CARD_CVV2']='XXX';
+        }
         
-        Kohana::$log->add(Log::DEBUG,"Posting to ".self::URL.' '.Debug::dump($data));
+        
+        Kohana::$log->add(Log::DEBUG,"Posting to ".self::URL.' '.Debug::dump($data_safe));
         
         $response=  curl_exec($ch);
         
